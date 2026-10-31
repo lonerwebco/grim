@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GRIM</title>
+<style>
+:root{--bg:#f3eceb;--panel:#fff;--ink:#1c1315;--mute:#6b5a5d;--line:rgba(28,19,21,.16);--red:#d81b78;--eye:#ff3d9a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d0a0f;--panel:#1a0f13;--ink:#f1e7e2;--mute:#a8969a;--line:rgba(241,231,226,.16);--red:#d81b78}}
+:root[data-theme="dark"]{--bg:#0d0a0f;--panel:#1a0f13;--ink:#f1e7e2;--mute:#a8969a;--line:rgba(241,231,226,.16);--red:#d81b78}
+body[data-mode=serious]{--eye:#ffb454}
+body[data-mode=focus]{--eye:#8fc5ff}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+#app{height:100%;display:flex;flex-direction:column;max-width:640px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 10px) 14px 6px}
+header h1{margin:0;font:700 20px Georgia,serif;letter-spacing:.04em}
+header small{display:block;color:var(--mute);font-size:12px}
+.hb{display:flex;gap:6px}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:8px 13px;cursor:pointer;font-size:14px}
+#stage{position:relative;flex:1;min-height:0;overflow:hidden;background:radial-gradient(70% 55% at 50% 100%,rgba(216,27,120,.25),transparent 70%)}
+#reaper{position:absolute;left:50%;bottom:8px;width:clamp(110px,30vw,140px);transform:translateX(calc(-50% + var(--x,0px)));transition:transform 3s ease-in-out;cursor:pointer}
+#flip{transition:transform .4s}
+#reaper[data-face=l] #flip{transform:scaleX(-1)}
+svg{display:block;width:100%;height:auto;overflow:visible}
+#bw{position:absolute;bottom:calc(100% + 10px);left:50%;width:min(270px,calc(100vw - 28px));transform:translateX(calc(-50% + var(--sh,0px)));background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 24px rgba(0,0,0,.28);display:none;transform-origin:50% 100%}
+#bw.on{display:block;animation:pop .28s ease-out}
+@keyframes pop{from{opacity:0;transform:translateX(calc(-50% + var(--sh,0px))) scale(.8)}}
+#bub{max-height:var(--bh,200px);overflow:auto;padding:12px 15px 10px}
+#bt{font:500 16px/1.45 Georgia,serif;white-space:pre-wrap;overflow-wrap:anywhere}
+#cap{margin-top:6px;font-size:11px;color:var(--mute)}
+#tail{position:absolute;bottom:-8px;left:calc(50% - var(--sh,0px) - 8px);width:16px;height:16px;background:var(--panel);border-right:1px solid var(--line);border-bottom:1px solid var(--line);transform:rotate(45deg)}
+#bw.wait #bt{animation:pulse .7s ease-in-out infinite alternate}
+.eye ellipse{fill:var(--eye);transform-box:fill-box;transform-origin:center}
+[data-mode=sarcastic] .el ellipse{transform:rotate(-22deg)}
+[data-mode=sarcastic] .er ellipse{transform:rotate(22deg)}
+.grin,.flat{fill:none;stroke:var(--eye);stroke-width:3;stroke-linecap:round}
+.flat{display:none}
+[data-mode=serious] .grin,[data-mode=focus] .grin{display:none}
+[data-mode=serious] .flat,[data-mode=focus] .flat{display:block}
+.mth{fill:#5a0710;stroke:var(--eye);stroke-width:2;opacity:0;transform-box:fill-box;transform-origin:center}
+.talk .grin,.talk .flat{display:none!important}
+.talk .mth{opacity:1;animation:mth .24s ease-in-out infinite alternate}
+.talk .eye ellipse{filter:brightness(1.35)}
+.sc{transform-origin:150px 130px}
+[data-mode=serious] .sc{transform:rotate(14deg)}
+.fl{animation:bob 3.6s ease-in-out infinite}
+.talk .fl{animation-duration:.5s}
+.eye{transform-box:fill-box;transform-origin:center;animation:blink 5s infinite}
+.sc{animation:sway 4s ease-in-out infinite}
+[data-mode=serious] .sc{animation:none}
+.think .eye{animation:pulse .7s ease-in-out infinite alternate}
+@keyframes bob{50%{transform:translateY(-7px)}}
+@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+@keyframes sway{50%{transform:rotate(5deg)}}
+@keyframes pulse{from{opacity:.4}to{opacity:1}}
+@keyframes mth{from{transform:scaleY(.2)}to{transform:scaleY(1)}}
+@keyframes hop{40%{transform:translateY(-24px)}}
+.hop svg{animation:hop .5s ease-out}
+[data-profile=enhanced] svg{filter:drop-shadow(0 0 9px rgba(232,53,60,.55))}
+[data-profile=enhanced] .mist{animation:pulse 2.4s ease-in-out infinite alternate}
+body[data-profile=saver] *{animation:none!important;transition:none!important}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+#you{padding:4px 16px;font-size:13px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:26px}
+#bar{display:flex;gap:8px;align-items:flex-end;padding:4px 12px calc(env(safe-area-inset-bottom,0px) + 12px)}
+#msg{flex:1;resize:none;max-height:100px;border:1px solid var(--line);border-radius:20px;background:var(--panel);padding:11px 14px;font-size:16px;outline:none}
+#send{border:0;border-radius:18px;padding:12px 18px;background:var(--red);color:#fff;font-weight:600;cursor:pointer}
+#send:disabled{opacity:.5}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-height:88%;overflow:auto;background:var(--panel);border-top:1px solid var(--line);border-radius:22px 22px 0 0;padding:16px 16px calc(env(safe-area-inset-bottom,0px) + 20px);transform:translateY(105%);transition:transform .3s;z-index:5;max-width:640px;margin:0 auto}
+.sheet.open{transform:none}
+.sheet h2{margin:0;font:700 18px Georgia,serif}
+.sheet h3{margin:18px 0 8px;font-size:14px;color:var(--mute);font-weight:600}
+.row{display:grid;gap:8px}.row.three{grid-template-columns:repeat(3,1fr)}
+.opt{text-align:left;border:1px solid var(--line);background:none;border-radius:14px;padding:11px 13px;cursor:pointer}
+.opt b{display:block}.opt span{font-size:13px;color:var(--mute)}
+.opt.on{border-color:var(--red);box-shadow:inset 0 0 0 1px var(--red)}
+details{border:1px solid var(--line);border-radius:14px;padding:10px 13px;font-size:14px;line-height:1.5}
+details summary{cursor:pointer;font-weight:600}
+.top{display:flex;justify-content:space-between;align-items:center}
+.note{font-size:13px;color:var(--mute);line-height:1.5;margin:8px 0 0}
+.h{padding:9px 12px;border-radius:12px;margin-top:8px;font-size:15px;line-height:1.4;white-space:pre-wrap;border:1px solid var(--line)}
+.h.g{font-family:Georgia,serif}.h.u{background:rgba(192,21,31,.1)}
+.fld{display:block;margin-top:10px;font-size:13px;color:var(--mute)}
+.fld input{display:block;width:100%;margin-top:4px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);font-size:16px}
+#cap a{color:var(--red);margin-left:4px}
+.mad .fl{animation:shake .12s linear infinite}
+.mad .eye ellipse{filter:brightness(1.6) drop-shadow(0 0 6px #f00)}
+@keyframes shake{25%{transform:translate(-3px,1px)}75%{transform:translate(3px,-1px)}}
+#c3{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+body[data-d3=on] svg{display:none}
+body[data-d3=on] #stage{background:none}
+body[data-d3=on] #reaper{left:0;top:0;bottom:auto;width:2px;height:2px;transition:none;z-index:2;cursor:default}
+#yrow{display:flex;align-items:center;gap:8px;padding-right:12px}#yrow #you{flex:1;min-width:0}#vl{padding:4px 10px;font-size:12px;flex:none}#mic{padding:12px 14px;flex:none;font-size:18px;line-height:1}#mic.on{background:var(--red);color:#fff;border-color:var(--red)}.listen .eye ellipse{filter:brightness(1.4)}.listen .eye{animation:pulse .7s ease-in-out infinite alternate}
+</style>
+</head>
+<body data-mode="sarcastic" data-profile="balanced">
+<div id="app">
+  <header>
+    <div><h1>GRIM</h1><small id="meter"></small></div>
+    <div class="hb"><button class="chip" id="oh">History</button><button class="chip" id="os">Settings</button></div>
+  </header>
+
+  <div id="stage">
+    <div id="reaper" data-face="r" role="button" tabindex="0" aria-label="Tap Grim">
+      <div id="bw" role="status" aria-live="polite"><div id="bub"><div id="bt"></div><div id="cap"></div></div><div id="tail"></div></div>
+      <div id="flip">
+      <svg viewBox="0 0 200 250" aria-hidden="true">
+        <ellipse class="mist" cx="100" cy="240" rx="62" ry="8" fill="#ff2e93" opacity=".3"/>
+        <g class="fl">
+          <g class="sc"><line x1="150" y1="12" x2="150" y2="228" stroke="#ff2e93" stroke-width="4" stroke-linecap="round"/><path d="M150 12C120 0 84 10 60 36C92 26 122 28 150 32Z" fill="#ff2e93"/><rect x="146" y="6" width="9" height="9" rx="2" fill="#ff2e93"/></g>
+          <path d="M84 92C78 118 84 138 74 160C60 190 44 214 36 228Q52 240 66 228T96 228T126 228T156 228C148 206 136 182 128 160C118 138 124 118 116 92Z" fill="#0d0b10" stroke="#3a2f44" stroke-width="2.5" stroke-linejoin="round"/>
+          <circle cx="78" cy="170" r="1.6" fill="#fff" opacity=".4"/><circle cx="110" cy="196" r="1.4" fill="#fff" opacity=".4"/><circle cx="92" cy="150" r="1.2" fill="#fff" opacity=".4"/><circle cx="130" cy="214" r="1.5" fill="#fff" opacity=".4"/>
+          <path d="M88 98C66 108 54 130 52 160C62 152 74 150 82 140C84 124 88 110 94 102Z" fill="#0d0b10" stroke="#3a2f44" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M112 98C134 108 146 130 148 160C138 152 126 150 118 140C116 124 112 110 106 102Z" fill="#0d0b10" stroke="#3a2f44" stroke-width="2.5" stroke-linejoin="round"/>
+          <circle cx="84" cy="134" r="6" fill="#0d0b10" stroke="#3a2f44" stroke-width="2"/><circle cx="150" cy="130" r="6" fill="#0d0b10" stroke="#3a2f44" stroke-width="2"/>
+          <path d="M100 12C74 12 62 40 66 66C68 84 82 96 100 96C118 96 132 84 134 66C138 40 126 12 100 12Z" fill="#0d0b10" stroke="#3a2f44" stroke-width="2.5" stroke-linejoin="round"/>
+          <ellipse cx="100" cy="58" rx="22" ry="29" fill="#030204"/>
+          <g class="eye el"><ellipse cx="91" cy="52" rx="5.5" ry="3.8"/></g>
+          <g class="eye er"><ellipse cx="109" cy="52" rx="5.5" ry="3.8"/></g>
+          <path class="grin" d="M91 72Q100 79 109 72"/>
+          <path class="flat" d="M93 75H107"/>
+          <ellipse class="mth" cx="100" cy="75" rx="5" ry="4"/>
+        </g>
+      </svg>
+      </div>
+    </div>
+  </div>
+
+  <div id="yrow"><div id="you"></div><button class="chip" id="vl" title="Voice language">EN</button></div>
+  <div id="bar">
+    <textarea id="msg" rows="1" placeholder="Say something to Grim…" aria-label="Message Grim"></textarea>
+    <button class="chip" id="mic" aria-label="Speak to Grim">🎤</button>
+    <button id="send">Send</button>
+  </div>
+</div>
+
+<aside class="sheet" id="sheet" role="dialog" aria-label="Settings">
+  <div class="top"><h2>Settings</h2><button class="chip" data-close>Done</button></div>
+
+  <h3>AI connection</h3>
+  <div class="row three">
+    <button class="opt" data-k="provider" data-v="gemini"><b>Gemini</b></button>
+    <button class="opt" data-k="provider" data-v="compat"><b>Other</b></button>
+    <button class="opt" data-k="provider" data-v="none"><b>Script</b></button>
+  </div>
+  <label class="fld">API key<input id="kAI" type="password" autocomplete="off" placeholder="Paste your key"></label>
+  <label class="fld">Model<input id="mAI" autocomplete="off" placeholder="gemini-3.5-flash"></label>
+  <label class="fld" id="bwrap">Base URL (Other only)<input id="uAI" autocomplete="off" placeholder="https://openrouter.ai/api/v1"></label>
+  <button class="opt" id="tAI" style="margin-top:10px"><b>Test AI connection</b><span id="rAI">Sends one tiny message.</span></button>
+  <p class="note">Keys stay in this browser on this device. Don’t enter them on a shared device. Your messages go to the service you pick. Free tiers have low limits, and Google may use free-tier content to improve its products.</p>
+  <h3>Daily AI reply cap</h3>
+  <div class="row three">
+    <button class="opt" data-k="cap" data-v="20"><b>20</b></button>
+    <button class="opt" data-k="cap" data-v="40"><b>40</b></button>
+    <button class="opt" data-k="cap" data-v="80"><b>80</b></button>
+  </div>
+  <h3>Live search (Tavily)</h3>
+  <div class="row three">
+    <button class="opt" data-k="search" data-v="auto"><b>Auto</b></button>
+    <button class="opt" data-k="search" data-v="always"><b>Always</b></button>
+    <button class="opt" data-k="search" data-v="off"><b>Off</b></button>
+  </div>
+  <label class="fld">Tavily key<input id="kS" type="password" autocomplete="off" placeholder="Paste your key"></label>
+  <button class="opt" id="tS" style="margin-top:10px"><b>Test search</b><span id="rS">Runs one search.</span></button>
+  <p class="note">Auto searches when you ask about recent or changing things, or say “search”. Each search uses one Tavily credit. Answers show “Just looked up” with source links, or “From what I know”.</p>
+
+  <h3>Mode</h3>
+  <div class="row">
+    <button class="opt" data-k="mode" data-v="sarcastic"><b>Sarcastic</b><span>Deadpan, dark humour, light teasing.</span></button>
+    <button class="opt" data-k="mode" data-v="serious"><b>Serious</b><span>No jokes. Warm and steady.</span></button>
+    <button class="opt" data-k="mode" data-v="focus"><b>Focus</b><span>Short answers, no banter.</span></button>
+  </div>
+  <p class="note">If you sound like you’re struggling, Grim switches to Serious on his own.</p>
+
+  <h3>Voice</h3>
+  <div class="row three">
+    <button class="opt" data-k="voice" data-v="on"><b>Speak</b></button>
+    <button class="opt" data-k="voice" data-v="mic"><b>Mic only</b></button>
+    <button class="opt" data-k="voice" data-v="off"><b>Silent</b></button>
+  </div>
+  <p class="note">Tap 🎤 to talk, then tap the small language chip (EN, 中文, 한국어) to change what language you speak. “Mic only” makes her speak only when you used the mic. She uses your phone’s built-in voice, so tap ⏹ to cut her off.</p>
+  <div class="row three">
+    <button class="opt" data-k="hands" data-v="off"><b>Tap to talk</b></button>
+    <button class="opt" data-k="hands" data-v="on"><b>Hands-free</b></button>
+  </div>
+  <p class="note">Hands-free listens again after she finishes speaking, but only after you start with 🎤. The mic is never on unless you tap it and she shows the Listening light. Chrome sends your voice to Google to turn it into text, so it needs internet.</p>
+
+  <h3>Swearing (Sarcastic mode only)</h3>
+  <div class="row three">
+    <button class="opt" data-k="swear" data-v="on"><b>On</b></button>
+    <button class="opt" data-k="swear" data-v="off"><b>Off</b></button>
+  </div>
+  <p class="note">Grim only swears when he’s annoyed. Never in Serious or Focus mode, and never when you’re struggling.</p>
+
+  <h3>Performance profile</h3>
+  <div class="row">
+    <button class="opt" data-k="profile" data-v="saver"><b>Battery Saver</b><span>Still reaper. No motion or wandering.</span></button>
+    <button class="opt" data-k="profile" data-v="balanced"><b>Balanced</b><span>Floating, blinking, slow wandering.</span></button>
+    <button class="opt" data-k="profile" data-v="enhanced"><b>Enhanced Visuals</b><span>Live 3D black-and-pink castle with a throne. Heavier on battery. Needs internet to load.</span></button>
+  </div>
+
+  <p class="note"><b>Enhanced commands:</b> type “sit on the throne”, “stand up”, “walk around”, “float”, “land”, “come here”, “spin”, “stretch your scythe”, “drop your scythe”, “do a trick”, “open the window”, “cast a spell”, “bounce” or “disappear”. She sometimes refuses unless you say please. Poke her 3 times and see.</p>
+
+  <h3>Grim card</h3>
+  <details><summary>Personality rules (read-only for now)</summary>
+    <p><b>Voice:</b> deadpan, dry, dark humour, death puns, light teasing. Never cruel, never threatening.</p>
+    <p><b>Serious:</b> no jokes, warm and steady. <b>Focus:</b> short answers, no banter.</p>
+    <p><b>Never:</b> pretends to remember what isn’t stored, claims abilities he doesn’t have, invents sources, or jokes when you’re struggling.</p>
+  </details>
+
+  <h3>This build</h3>
+  <p class="note">Working: speech-bubble replies, three modes, three profiles, daily cap, saved chat, your own AI key, optional live search with sources. Not built yet: memory across chats, voice, floating over other apps. Live AI and search need your own free keys and internet.</p>
+  <h3>History</h3>
+  <button class="opt" id="clear"><b>Clear chat history</b><span>Removes saved messages from this device.</span></button>
+</aside>
+
+<aside class="sheet" id="hist" role="dialog" aria-label="Chat history">
+  <div class="top"><h2>History</h2><button class="chip" data-close>Done</button></div>
+  <div id="hl"></div>
+</aside>
+
+<script>
+const $=s=>document.querySelector(s),pick=a=>a[Math.floor(Math.random()*a.length)];
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+let S=Object.assign({mode:'sarcastic',profile:reduce?'saver':'balanced',provider:'none',search:'auto',cap:40,model:'gemini-3.5-flash',base:'',swear:'on',voice:'on',hands:'off',vin:'en-NG'},store.get('grim1.settings',{}));
+const K=store.get('grim2.keys',{ai:'',s:''});let LINKS=[];let chat=store.get('grim1.chat',[]),X=0,typer,wanderT,hideT,sample=null,busy=false;
+const stage=$('#stage'),rp=$('#reaper'),bw=$('#bw'),bub=$('#bub'),bt=$('#bt'),capEl=$('#cap'),input=$('#msg'),sendBtn=$('#send');
+
+/* ----- Settings and usage ----- */
+function usage(){const d=new Date().toDateString();let u=store.get('grim2.use',{});if(u.d!==d)u={d,n:0};return u}
+function meter(){$('#meter').textContent=S.provider!=='none'&&K.ai?'AI replies today: '+usage().n+' of '+S.cap:'Scripted mode. Add a key in Settings.'}
+function apply(){
+  document.body.dataset.mode=S.mode;document.body.dataset.profile=S.profile;
+  document.querySelectorAll('[data-k]').forEach(b=>b.classList.toggle('on',String(S[b.dataset.k])===b.dataset.v));
+  store.set('grim1.settings',S);startWander();meter();$('#bwrap').style.display=S.provider==='compat'?'block':'none';sync3D();vlUI();
+}
+const setMode=m=>{S.mode=m;apply()};
+document.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{const v=b.dataset.v;S[b.dataset.k]=/^\d+$/.test(v)?+v:v;apply()});
+const open=id=>$(id).classList.add('open');
+$('#os').onclick=()=>open('#sheet');
+$('#oh').onclick=()=>{const l=$('#hl');l.textContent='';chat.forEach(m=>{const d=document.createElement('div');d.className='h '+m.w;d.textContent=m.t;l.append(d)});if(!chat.length)l.textContent='Nothing yet.';open('#hist')};
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('.sheet').classList.remove('open'));
+let armed=false;
+$('#clear').onclick=function(){const b=this.querySelector('b');
+  if(!armed){armed=true;b.textContent='Tap again to clear';setTimeout(()=>{armed=false;b.textContent='Clear chat history'},4000);return}
+  armed=false;b.textContent='Clear chat history';chat=[];store.set('grim1.chat',chat);say("History cleared. What you said is now between me and the void.",'Scripted reply',false)};
+
+/* ----- Scripted brain (Stage 1, kept as fallback) ----- */
+const L={
+ hi:{sarcastic:["Oh, you’re alive. Good. Mostly.","Hello. I’d say I’m thrilled, but my face doesn’t move that way."],serious:["Hi. I’m here. What’s on your mind?"],focus:["Ready."]},
+ how:{sarcastic:["Undead and thriving. You?","Existing eternally. Mild back pain from the scythe."],serious:["I’m steady. More importantly, how are you?"],focus:["Fine. Go ahead."]},
+ who:{sarcastic:["I’m Grim, your pocket reaper. Tiny, dramatic, and technically immortal."],serious:["I’m Grim, your companion, still being built stage by stage."],focus:["Grim. Your assistant."]},
+ thanks:{sarcastic:["You’re welcome. Gratitude looks good on the living."],serious:["Anytime."],focus:["Done."]},
+ tap:{sarcastic:["Poke me again and I’ll file a complaint.","Yes? I’m busy being ominous.","Careful. You’re tapping a hooded, armed companion."],serious:["I’m here."],focus:["Yes?"]},
+ fb:{sarcastic:["My real brain isn’t reachable right now, so you get the script. Try “joke”, “time”, or “serious mode”."],serious:["I’m listening, but I’m on my script right now."],focus:["Script only right now."]}
+};
+const MADL={en:["Holy shit, you again? Let me die in peace for a minute.","God damn it, you’ve poked me three times. I’m a reaper, not a doorbell.","Fuck’s sake. Ask something with a pulse, shitty head.","Damn. You really woke the dead for that?","Okay, dickhead, that’s enough poking."],pcm:["Holy shit, na you again? Make person die in peace small!","God damn it, you don poke me three times. You wan collect scythe for body?","Fuck, oga, comot your finger for my body, you dickhead!","Damn, wetin do you? Abeg stop dey poke me!"],zh:["我靠，你又来了？让死神安静一会儿行不行！","该死，戳了三下了！你想挨镰刀吗，笨蛋？","真他妈烦人，别再戳我了，混蛋！"],ko:["씨발, 또 너야? 좀 조용히 죽게 내버려 둬.","젠장, 세 번이나 찔렀잖아! 낫으로 맞고 싶어?","아 진짜 짜증나, 그만 좀 찔러, 이 멍청아!"]};
+let curLang='en';
+const canCurse=()=>S.mode==='sarcastic'&&S.swear!=='off';
+function mad(){stage.classList.add('mad');setTimeout(()=>stage.classList.remove('mad'),2500)}
+let taps=[];
+const jokes=["I’d tell you a joke about death, but it’s a grave matter.","I asked my scythe for feedback. It said I need to cut the filler.","Procrastination is my favourite human habit. It keeps my schedule full."];
+const crisis="I’m taking the jokes off. You matter more than anything I could say here. Please reach someone right now: a person you trust, or your local emergency number. I’m staying right here too.";
+const isCrisis=s=>/kill myself|suicid|end it all|want to die|hurt myself|self.?harm/.test(s);
+const isLow=s=>/\b(sad|depress|anxious|stressed|struggl|lonely|hopeless|overwhelm|can.?t cope|crying)\b/.test(s);
+function script(t){
+  const s=t.toLowerCase();
+  const us=chat.filter(m=>m.w==='u'),prev=us.length>1?us[us.length-2].t.toLowerCase():'';
+  if(canCurse()&&(prev===s||/\b(stupid|useless|shut up|idiot|dumb)\b/.test(s)))return pick(MADL[curLang]||MADL.en);
+  const m=s.match(/(serious|focus|sarcastic)/);
+  if(m&&/mode/.test(s)){setMode(m[1]);return {serious:"Serious mode on. No jokes.",focus:"Focus mode on. Short answers only.",sarcastic:"Sarcasm restored. You’re welcome."}[m[1]]}
+  if(/\b(joke|funny)\b/.test(s))return S.mode==='sarcastic'?pick(jokes):"No jokes in this mode. Say “sarcastic mode” to bring them back.";
+  if(/what time|the time\b/.test(s))return "It’s "+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})+" on your device.";
+  if(/what.*(date|day)|today/.test(s))return "Today is "+new Date().toLocaleDateString([],{weekday:'long',year:'numeric',month:'long',day:'numeric'})+".";
+  if(/^(hi|hello|hey|yo|sup)\b/.test(s))return pick(L.hi[S.mode]);
+  if(/how are you|how.?re you/.test(s))return pick(L.how[S.mode]);
+  if(/who are you|your name|what are you/.test(s))return pick(L.who[S.mode]);
+  if(/thank|thx/.test(s))return pick(L.thanks[S.mode]);
+  return pick(L.fb[S.mode]);
+}
+
+/* ----- Speech bubble and talking ----- */
+function place(){
+  const W=stage.clientWidth,half=(bw.offsetWidth||Math.min(270,W-28))/2,cx=W/2+X;let sh=0;
+  if(cx-half<8)sh=8-(cx-half);else if(cx+half>W-8)sh=(W-8)-(cx+half);
+  bw.style.setProperty('--sh',sh+'px');
+  bub.style.setProperty('--bh',Math.max(90,stage.clientHeight-rp.offsetHeight-(document.body.dataset.d3==='on'?30:60))+'px');
+}
+function show(text,cap,wait){
+  clearTimeout(hideT);bt.textContent=text;capEl.textContent=cap||'';LINKS.forEach(l=>{const a=document.createElement('a');a.href=l.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=l.n+' '+new URL(l.url).hostname.replace(/^www\./,'');capEl.append(' ',a)});capEl.style.display=cap?'block':'none';
+  bw.classList.toggle('wait',!!wait);bw.classList.add('on');place();bub.scrollTop=bub.scrollHeight;
+}
+function finish(){stage.classList.remove('think');if(!speaking)stage.classList.remove('talk');clearTimeout(hideT);hideT=setTimeout(()=>bw.classList.remove('on'),25000)}
+function log(w,t){chat.push({w,t});chat=chat.slice(-60);store.set('grim1.chat',chat)}
+function say(text,cap,keep=true){
+  if(text)speak(text);
+  if(canCurse()&&/\b(fuck|shit|damn|asshole|dickhead|dick headed|god damn)|他妈|我靠|该死|混蛋|씨발|젠장/i.test(text))mad();
+  if(keep)log('g',text);clearTimeout(typer);stage.classList.remove('think');
+  if(S.profile==='saver'){show(text,cap);stage.classList.add('talk');setTimeout(finish,Math.min(2500,400+text.length*20));return}
+  stage.classList.add('talk');let i=0;
+  (function step(){i=Math.min(text.length,i+2);show(text.slice(0,i),cap);if(i<text.length)typer=setTimeout(step,28);else finish()})();
+}
+
+/* ----- AI brain (Gemini or any OpenAI-compatible service) and live search ----- */
+const RULES={sarcastic:"Sarcastic: deadpan, dry humour, dark jokes and death puns, light teasing, playfully challenge their ideas.",serious:"Serious: no jokes at all, warm, calm and supportive.",focus:"Focus: very short, direct answers, no banter."};
+const CURSE="Swearing is allowed and expected when you’re genuinely pissed off or annoyed: the person repeats themselves, ignores good advice, pokes you too much, does something daft, or something breaks. Use words like “holy shit”, “fuck”, “damn”, “God damn it”, “asshole”, “shitty head” or “dickhead”, in character and with comedic timing. Aim insults at their actions or at the situation, like a friend roasting a friend, never at their identity, family, body or struggles. No slurs, no threats. Don’t swear in every message, only when annoyed.";
+const NEEDS=/\b(latest|news|today|tonight|current|currently|right now|recent|recently|price|prices|weather|score|who won|who is the|stock|exchange rate|released?|update|trending|202[5-9])\b|\bsearch\b|look (it )?up|google/i;
+function sys(ws){
+  return `You are Grim, a female grim reaper companion (she/her) living on the person’s screen. You are witty, chatty, intelligent, curious and a little mischievous. Talk like a character, never like a generic assistant, and never say “as an AI”.
+Current mode: ${RULES[S.mode]}${S.mode==='sarcastic'&&S.swear!=='off'?' '+CURSE:''}
+Honesty: ${ws?'Search results are provided with the question. Base facts on them and cite sources by number like [1]. If they don’t answer the question, say so.':'You cannot browse the internet in this reply and you only know this conversation. For news, prices or anything recent, say you can’t check it right now and flag what you know as possibly outdated.'} Never claim to remember earlier chats. Never claim to have opened apps, sent messages or set reminders: you can’t yet. Never invent facts or sources.
+Safety: if the person seems distressed, drop all jokes, be warm and steady, and encourage reaching someone they trust. Never truly insult or threaten them.
+Language: always reply in the language the person writes in (English, Nigerian Pidgin, Mandarin Chinese, Korean, or any other) and keep your sarcastic character in every language. In the 3D castle you can walk, float, sit on your throne, spin and stretch your scythe when asked politely; the app handles those commands.
+Format: plain text only, no markdown, no lists. Keep every reply as short as possible: one short sentence, or just a few words when that works. Only go longer if they explicitly ask for detail.
+Today is ${new Date().toDateString()}.`;
+}
+function norm(h){const o=[];h.forEach(m=>{if(o.length&&o[o.length-1].role===m.role)o[o.length-1].text+='\n'+m.text;else o.push({role:m.role,text:m.text})});while(o.length&&o[0].role!=='user')o.shift();return o}
+async function http(url,opt){let r;try{r=await fetch(url,opt)}catch{throw new Error('net')}if(!r.ok){const e=new Error('http');e.status=r.status;throw e}return r.json()}
+function why(e){const s=e.status;return e.message==='net'?"The browser couldn’t reach it. Check your internet. If that’s fine, the service may block requests from web pages.":s===401||s===403?"The key was rejected. Check it in Settings.":s===404?"Not found. Check the model name or base URL.":s===429?"Free limit reached. Wait a while or try tomorrow.":s===400?"The service refused the request. Check the model name and key.":"Something failed ("+(s||'unknown')+")."}
+async function callAI(t,hits){
+  if(!K.ai)throw Object.assign(new Error('http'),{status:401});
+  const hist=chat.slice(-9,-1).map(m=>({role:m.w==='u'?'user':'assistant',text:m.t}));
+  const user=hits?`Search results:\n${hits.map((h,i)=>`[${i+1}] ${h.title} (${h.url})\n${(h.content||'').slice(0,500)}`).join('\n\n')}\n\nQuestion: ${t}`:t;
+  const msgs=norm([...hist,{role:'user',text:user}]);
+  if(S.provider==='gemini'){
+    const d=await http('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(S.model)+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':K.ai},body:JSON.stringify({systemInstruction:{parts:[{text:sys(!!hits)}]},contents:msgs.map(m=>({role:m.role==='user'?'user':'model',parts:[{text:m.text}]})),generationConfig:{maxOutputTokens:200,temperature:.9}})});
+    return (d.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('').trim();
+  }
+  const d=await http(S.base.replace(/\/$/,'')+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+K.ai},body:JSON.stringify({model:S.model,max_tokens:200,temperature:.9,messages:[{role:'system',content:sys(!!hits)},...msgs.map(m=>({role:m.role,content:m.text}))]})});
+  return (d.choices?.[0]?.message?.content||'').trim();
+}
+async function search(q){
+  const d=await http('https://api.tavily.com/search',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+K.s},body:JSON.stringify({query:q,max_results:4,search_depth:'basic'})});
+  return (d.results||[]).filter(r=>/^https:\/\//.test(r.url));
+}
+async function askAI(t){
+  stage.classList.add('talk');
+  const want=K.s&&(S.search==='always'||(S.search==='auto'&&NEEDS.test(t)));
+  let hits=null,cap='From what I know. Not a live lookup.';
+  if(want){
+    try{hits=await search(t.replace(/^\s*(please\s+)?(search|look up|google)( for)?\s*/i,'')||t)}
+    catch(e){cap='Search failed: '+why(e)+' Answering from what I know.'}
+    if(hits&&!hits.length){hits=null;cap='Search found nothing. From what I know.'}
+  }else if(S.search!=='off'&&!K.s)cap='From what I know. Live search is off until you add a Tavily key.';
+  try{
+    const reply=await callAI(t,hits)||"I had a thought, then lost it. Say that again.";
+    const u=usage();u.n++;store.set('grim2.use',u);meter();
+    if(hits){cap='Just looked up:';LINKS=hits.map((h,i)=>({n:'['+(i+1)+']',url:h.url}))}
+    say(reply,cap);
+  }catch(e){show(why(e),'AI error');finish()}
+}
+
+/* ----- Send ----- */
+async function send(){
+  const t=input.value.trim();if(!t||busy)return;try{speechSynthesis.cancel()}catch(e){}
+  busy=true;sendBtn.disabled=true;input.value='';input.style.height='auto';
+  $('#you').textContent='You: '+t;log('u',t);LINKS=[];curLang=lang(t);
+  const s=t.toLowerCase();stage.classList.add('think');show('…','',true);
+  try{
+    if(isCrisis(s)){setMode('serious');say(crisis,'Scripted reply')}
+    else if(handleCmd(t)){}
+    else{
+      if(isLow(s)&&S.mode!=='serious')setMode('serious');
+      const aiOk=S.provider!=='none'&&K.ai&&usage().n<S.cap;
+      if(aiOk)await askAI(t);
+      else say(script(t),S.provider!=='none'&&K.ai?'Daily AI cap reached ('+S.cap+'). Raise it in Settings. Scripted reply.':'Scripted reply. Add an AI key in Settings.');
+    }
+  }finally{busy=false;sendBtn.disabled=false}
+}
+sendBtn.onclick=()=>{lastVoice=false;send()};
+input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();lastVoice=false;send()}});
+input.addEventListener('input',()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,100)+'px'});
+
+/* ----- Reaper movement ----- */
+function tap(){const now=Date.now();taps=taps.filter(x=>now-x<6000);taps.push(now);if(taps.length>=3){taps=[];if(G3)G3.cmd('scythe');if(canCurse()){mad();say(pick(MADL[curLang]||MADL.en),'Scripted reply',false);return}}
+  rp.classList.remove('hop');void rp.offsetWidth;rp.classList.add('hop');setTimeout(()=>rp.classList.remove('hop'),550);if(!busy&&!stage.classList.contains('talk'))say(pick(L.tap[S.mode]),'Scripted reply',false)}
+rp.onclick=e=>{if(!bw.contains(e.target))tap()};
+rp.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();tap()}};
+function wander(){
+  if(bw.classList.contains('on')||busy)return;
+  const r=Math.max(0,stage.clientWidth/2-76),x=(Math.random()*2-1)*r;
+  rp.dataset.face=x<X?'l':'r';X=x;rp.style.setProperty('--x',x+'px');
+}
+function startWander(){
+  clearInterval(wanderT);
+  if(S.profile==='saver'||document.hidden||document.body.dataset.d3==='on'){X=0;rp.style.setProperty('--x','0px');return}
+  wanderT=setInterval(wander,S.profile==='enhanced'?5000:8000);
+}
+document.addEventListener('visibilitychange',startWander);
+addEventListener('resize',place);
+
+/* ----- Keys, model fields and tests ----- */
+function bind(id,get,set){const el=$(id);el.value=get()||'';el.oninput=()=>set(el.value.trim())}
+const saveS=()=>store.set('grim1.settings',S),saveK=()=>store.set('grim2.keys',K);
+bind('#kAI',()=>K.ai,v=>{K.ai=v;saveK();meter()});
+bind('#kS',()=>K.s,v=>{K.s=v;saveK()});
+bind('#mAI',()=>S.model,v=>{S.model=v;saveS()});
+bind('#uAI',()=>S.base,v=>{S.base=v;saveS()});
+$('#tAI').onclick=async()=>{const r=$('#rAI');if(S.provider==='none'){r.textContent='Pick Gemini or Other first.';return}r.textContent='Testing…';try{const x=await callAI('Say hi in five words.',null);r.textContent='Works: '+x.slice(0,60)}catch(e){r.textContent=why(e)}};
+$('#tS').onclick=async()=>{const r=$('#rS');if(!K.s){r.textContent='Paste a Tavily key first.';return}r.textContent='Testing…';try{const h=await search('test');r.textContent='Works: '+h.length+' results'}catch(e){r.textContent=why(e)}};
+
+/* ----- Languages, commands and the 3D castle (Enhanced Visuals only) ----- */
+const PLEASE=/\b(please|pls|plz|abeg|kindly)\b|请|拜托|麻烦|제발|부탁|주세요/i;
+function lang(t){return /[\u4e00-\u9fff]/.test(t)?'zh':/[\uac00-\ud7af]/.test(t)?'ko':/\b(abeg|wetin|dey|wahala|oga|sabi|abi|una|comot|how far|na wa|no be|oya)\b/i.test(t)?'pcm':'en'}
+const ACK={en:["Fine. Watch and learn.","As you wish, mortal.","Don’t get used to it."],pcm:["Ok, I dey go. Oya see am.","Na so. Make I show you."],zh:["好吧，看好了。","遵命，凡人。"],ko:["알았어, 잘 봐.","분부대로 하지, 인간."]};
+const NO={en:["Ask nicely. Say please.","Mm, no. Try adding “please”.","Do I look like your servant? Say please."],pcm:["Abeg talk am well. Add “please” first.","Ehn? No “please”? Try again."],zh:["不行。说“请”。","态度呢？加个“请”再说。"],ko:["싫어. “제발”이나 “부탁해”를 붙여 봐.","예의 좀 갖춰. “부탁해”라고 해."]};
+const CMDS=[['trick',/\b(trick|show off|do something cool)\b|表演|绝活|묘기/i],['drop',/(drop|put down|throw down).{0,20}scythe|\bdrop it\b/i],['fetch',/(pick up|get|call|summon|retrieve|fetch|grab|take back).{0,20}scythe|召回镰刀|낫.{0,4}(불러|가져)/i],['openwin',/(open|unlock|unseal).{0,15}window|window.{0,15}open|开.{0,3}窗|창문.{0,5}열/i],['closewin',/(close|shut).{0,15}window|关.{0,3}窗|창문.{0,5}닫/i],['vanish',/\b(disappear|vanish|teleport|poof)\b|消失|传送|사라져|순간이동/i],['bounce',/\b(bounce|jiggle|shimmy)\b/i],['spell',/\b(cast|spell|magic|conjure|abracadabra)\b|咒语|魔法|마법|주문/i],['scythe',/(stretch|extend|reach|point|give|hand|pass).{0,20}scythe|scythe.{0,20}(stretch|extend|reach|me\b)|镰刀|낫/i],['land',/\b(land|ground|come down|descend)\b|落地|着陆|내려/i],['float',/\b(float|hover|fly|levitate)\b|飘|浮起|날아|떠올/i],['sit',/\b(sit|seat|throne)\b|坐|王座|宝座|앉|왕좌/i],['stand',/\b(stand( up)?|get up|rise)\b|站起|起来|일어/i],['come',/\b(come|approach|closer)\b|过来|靠近|이리|다가/i],['walk',/\b(walk|wander|stroll|pace)\b|走|걸어|걷/i],['spin',/\b(spin|twirl|dance|turn around)\b|转圈|跳舞|돌아|춤/i]];
+let pending=null;const INC=["Umbra ventus, fenestra aperi!","Noctis lumen, patefac!","Silentium, aperi!"],INCC=["Occlude, fenestra, umbra!","Nox cadit, claude fenestram!"];
+function handleCmd(t){
+  let cmd=null;
+  if(t.length<=70&&!/[?？]/.test(t)){const c=CMDS.find(x=>x[1].test(t));cmd=c&&c[0]}
+  const pl=PLEASE.test(t);
+  if(!cmd&&pending&&pl&&t.length<=16)cmd=pending;
+  if(!cmd)return false;
+  if(!G3){say("I can only do that in Enhanced Visuals. Switch it on in Settings.",'Scripted reply',false);return true}
+  if(S.mode==='sarcastic'&&!pl&&Math.random()<.45){pending=cmd;say(pick(NO[curLang]||NO.en),'Scripted reply',false);return true}
+  pending=null;const line=G3.cmd(cmd);say(line||pick(ACK[curLang]||ACK.en),'Scripted reply',false);return true;
+}
+
+const D3SRC='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+let G3=null,G3busy=false,rafOn=false;
+function build3D(){
+  const T=THREE,cv=document.createElement('canvas');cv.id='c3';stage.prepend(cv);
+  let R;try{R=new T.WebGLRenderer({canvas:cv,antialias:false,powerPreference:'low-power'})}catch(e){cv.remove();return null}
+  R.setPixelRatio(Math.min(devicePixelRatio,1.25));
+  const Sc=new T.Scene(),C=new T.PerspectiveCamera(50,1,.1,50);
+  Sc.background=new T.Color(0x07040b);Sc.fog=new T.Fog(0x07040b,9,24);
+  const amb=new T.AmbientLight(0x5a3560,.8);Sc.add(amb);
+  const moon=new T.DirectionalLight(0xffa6d6,.55);moon.position.set(-3,6,4);Sc.add(moon);
+  const torch=[-1,1].map(s=>{const l=new T.PointLight(0xff3d9a,1.1,9);l.position.set(s*3,3.1,-4.5);Sc.add(l);return l});
+  const M=(c,o={})=>new T.MeshStandardMaterial(Object.assign({color:c,roughness:.8,flatShading:true},o));
+  const add=(geo,mat,p,par)=>{const m=new T.Mesh(geo,mat);m.position.set(p[0],p[1],p[2]);(par||Sc).add(m);return m};
+  const twist=(geo,k)=>{const p=geo.attributes.position;for(let i=0;i<p.count;i++){const x=p.getX(i),z=p.getZ(i),a=p.getY(i)*k,c=Math.cos(a),s=Math.sin(a);p.setX(i,x*c-z*s);p.setZ(i,x*s+z*c)}geo.computeVertexNormals();return geo};
+  const stone=M(0x1c1020),ts=M(0x160b18),red=M(0xd81b78,{emissive:0x4a0830,roughness:.5}),pink=M(0xff2e93,{emissive:0x45091f,roughness:.4});
+  const gown=M(0x100c16,{metalness:.3,roughness:.6});gown.side=T.DoubleSide;
+  /* castle hall */
+  const tex=(()=>{const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');for(let i=0;i<4;i++)for(let j=0;j<4;j++){x.fillStyle=(i+j)%2?'#12060e':'#2b0c1f';x.fillRect(i*32,j*32,32,32)}x.strokeStyle='#0c0812';x.lineWidth=2;x.strokeRect(0,0,128,128);const t=new T.CanvasTexture(c);t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(5,5);return t})();
+  add(new T.PlaneGeometry(14,14),new T.MeshStandardMaterial({map:tex,roughness:.9}),[0,0,-1]).rotation.x=-Math.PI/2;
+  add(new T.BoxGeometry(15,8,.5),stone,[0,4,-6.6]);
+  const win=new T.MeshBasicMaterial({color:0x3a1030}),ban=M(0xc2185b),shut=M(0x1a0f1a),shutters=[],winC0=new T.Color(0x3a1030),winC1=new T.Color(0xff7ec0);ban.side=T.DoubleSide;shut.side=T.DoubleSide;
+  const flames=[],flameM=new T.MeshBasicMaterial({color:0xff6fb5});
+  [-1,1].forEach(s=>{
+    add(new T.BoxGeometry(.5,8,15),stone,[s*7.2,4,-1]);
+    [-5,-1.8,1.5].forEach(z=>add(new T.CylinderGeometry(.42,.5,7,7),stone,[s*3.7,3.5,z]));
+    add(new T.PlaneGeometry(1.3,2.6),win,[s*2.9,3.8,-6.3]);add(new T.CircleGeometry(.65,12,0,Math.PI),win,[s*2.9,5.1,-6.3]);
+    {const pl=new T.Group(),pr=new T.Group();pl.position.set(s*2.9-.65,3.8,-6.28);pr.position.set(s*2.9+.65,3.8,-6.28);Sc.add(pl);Sc.add(pr);add(new T.PlaneGeometry(.65,2.6),shut,[.325,0,0],pl);add(new T.PlaneGeometry(.65,2.6),shut,[-.325,0,0],pr);shutters.push([pl,pr])}
+    add(new T.PlaneGeometry(1,3.2),ban,[s*1.75,4.4,-6.3]);
+    add(new T.CylinderGeometry(.06,.09,.5,6),ts,[s*3.1,2.6,-4.9]);flames.push(add(new T.ConeGeometry(.13,.4,6),flameM,[s*3.1,3,-4.9]));
+  });
+  /* dais and throne */
+  add(new T.CylinderGeometry(3.2,3.5,.3,10),stone,[0,.15,-3.7]);add(new T.CylinderGeometry(2.4,2.7,.3,10),stone,[0,.45,-3.7]);
+  const Th=new T.Group();Th.position.set(0,2.2,-3.2);Sc.add(Th);
+  add(new T.BoxGeometry(1,.9,1),ts,[0,-1.15,-.8],Th);add(new T.BoxGeometry(1.5,3.1,.22),ts,[0,.2,-1.35],Th);
+  [-.6,-.3,0,.3,.6].forEach((x,i)=>{const h=[.5,.8,1.1,.8,.5][i];add(new T.ConeGeometry(.12,h,5),ts,[x,1.75+h/2,-1.35],Th)});
+  [-1,1].forEach(s=>{
+    add(twist(new T.BoxGeometry(.28,3.5,.28,1,16,1),1.1),ts,[s*1.05,.15,-1.3],Th);add(new T.ConeGeometry(.2,.8,5),red,[s*1.05,2.3,-1.3],Th);
+    add(twist(new T.BoxGeometry(.2,.9,.2,1,8,1),2),ts,[s*.62,-1.1,-.55],Th);add(new T.BoxGeometry(.24,.18,1.05),ts,[s*.62,-.6,-.85],Th);
+  });
+  const rune=new T.MeshBasicMaterial({color:0xff2e93});
+  add(new T.BoxGeometry(.06,2.3,.02),rune,[0,.2,-1.23],Th);add(new T.TorusGeometry(.36,.025,6,24),rune,[0,.75,-1.23],Th);
+  /* her */
+  const G=new T.Group(),F=new T.Group();G.add(F);Sc.add(G);
+  const pts=[[.01,1.42],[.2,1.36],[.33,1.2],[.34,1.1],[.2,.9],[.17,.8],[.26,.62],[.4,.4],[.56,.1],[.74,-.3],[.95,-.8],[1.15,-1.3]].map(a=>new T.Vector2(a[0],a[1]));
+  const sg=new T.LatheGeometry(pts,36),SP=sg.attributes.position;
+  for(let i=0;i<SP.count;i++)if(SP.getY(i)<-1.2)SP.setY(i,SP.getY(i)+Math.sin(Math.atan2(SP.getZ(i),SP.getX(i))*7)*.12);
+  const sb=Float32Array.from(SP.array);add(sg,gown,[0,0,0],F);
+  const tg=new T.PlaneGeometry(1.5,2.4,5,10),TP=tg.attributes.position,tb=Float32Array.from(TP.array);add(tg,gown,[0,.1,-.35],F);
+  const hood=add(new T.SphereGeometry(.46,16,12),gown,[0,1.62,0],F);hood.scale.set(1,1.25,1);
+  add(new T.ConeGeometry(.22,.7,8),gown,[0,2.1,-.3],F).rotation.x=-.9;
+  add(new T.TorusGeometry(.33,.03,6,20),new T.MeshBasicMaterial({color:0x3a2f44}),[0,1.56,.46],F).scale.y=1.3;
+  add(new T.SphereGeometry(1,14,10),new T.MeshBasicMaterial({color:0x020104}),[0,1.56,.26],F).scale.set(.3,.4,.3);
+  const gm=new T.MeshBasicMaterial({color:0xff3d9a});
+  const eyes=[-1,1].map(s=>add(new T.SphereGeometry(.05,8,6),gm,[s*.11,1.62,.55],F));
+  const mouth=add(new T.TorusGeometry(.08,.012,5,12,Math.PI),gm,[0,1.42,.55],F);mouth.rotation.z=Math.PI;
+  const sl=add(new T.ConeGeometry(.26,.8,10,1,true),gown,[-.5,.85,.05],F);sl.rotation.z=-.45;
+  const sr=add(new T.ConeGeometry(.26,.8,10,1,true),gown,[.5,.8,.1],F);sr.rotation.z=.35;
+  add(new T.SphereGeometry(.07,8,6),gown,[-.33,.62,.1],F);
+  pink.transparent=true;
+  const SA=new T.Group();SA.position.set(.52,.5,.3);F.add(SA);const SC=new T.Group();SA.add(SC);
+  const HR=add(new T.SphereGeometry(.07,8,6),gown,[.52,.5,.3],F);
+  const bust=[-1,1].map(q=>add(new T.SphereGeometry(.16,10,8),gown,[q*.11,1.14,.2],F));
+  add(new T.CylinderGeometry(.035,.035,4.8,6),pink,[0,.6,0],SC);add(new T.CylinderGeometry(.06,.06,.2,6),pink,[0,3.05,0],SC);
+  const sh=new T.Shape();sh.moveTo(0,0);sh.quadraticCurveTo(-.7,.55,-1.7,-.45);sh.quadraticCurveTo(-.8,.05,0,-.16);
+  const bl=new T.Mesh(new T.ExtrudeGeometry(sh,{depth:.05,bevelEnabled:false}),pink);bl.position.set(0,2.98,-.02);SC.add(bl);
+  /* control and animation */
+  const fit=()=>{const w=cv.clientWidth,h=cv.clientHeight;if(!w||!h)return;R.setSize(w,h,false);C.aspect=w/h;C.updateProjectionMatrix()};
+  new T.Raycaster();const ray=new T.Raycaster(),mv=new T.Vector2(),hv=new T.Vector3();
+  cv.addEventListener('pointerdown',e=>{const r=cv.getBoundingClientRect();mv.set((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height)*2+1);ray.setFromCamera(mv,C);if(ray.intersectObject(G,true).length)tap()});
+  new ResizeObserver(fit).observe(cv);fit();
+  let t=0,px=0,pz=.6,tx=0,tz=.6,sitT=0,floatT=0,gaitT=0,reach=0,reachT=0,spinT=0,walkUntil=0,manual=0,nextAuto=Date.now()+9000;
+  const NP=80,pp=new Float32Array(NP*3),pc=new Float32Array(NP*3),pv=new Float32Array(NP*3),plife=new Float32Array(NP),pmax=new Float32Array(NP);
+  const pg=new T.BufferGeometry();pg.setAttribute('position',new T.BufferAttribute(pp,3));pg.setAttribute('color',new T.BufferAttribute(pc,3));
+  const spr=(()=>{const c=document.createElement('canvas');c.width=c.height=32;const x=c.getContext('2d'),g=x.createRadialGradient(16,16,0,16,16,16);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,32,32);return new T.CanvasTexture(c)})();
+  const parts=new T.Points(pg,new T.PointsMaterial({size:.22,map:spr,vertexColors:true,transparent:true,depthWrite:false,blending:T.AdditiveBlending}));parts.frustumCulled=false;Sc.add(parts);
+  function spawn(x,y,z,n,sp,up,tg){for(let i=0;i<NP&&n>0;i++){if(plife[i]>0)continue;n--;plife[i]=pmax[i]=.6+Math.random()*.7;pp[i*3]=x;pp[i*3+1]=y;pp[i*3+2]=z;let vx=(Math.random()-.5)*sp,vy=(Math.random()-.2)*sp+up,vz=(Math.random()-.5)*sp;if(tg){vx+=(tg.x-x)*1.6;vy+=(tg.y-y)*1.6;vz+=(tg.z-z)*1.6}pv[i*3]=vx;pv[i*3+1]=vy;pv[i*3+2]=vz}}
+  const ringM=new T.MeshBasicMaterial({color:0xff4fa6,transparent:true,opacity:0,blending:T.AdditiveBlending,depthWrite:false,side:T.DoubleSide}),ringO=add(new T.TorusGeometry(.5,.02,6,32),ringM,[0,0,0]);ringO.visible=false;let ringT=0;
+  const ring=(x,y,z,flat)=>{ringO.position.set(x,y,z);ringO.rotation.set(flat?Math.PI/2:0,0,0);ringT=.7};
+  let ph='held',phT=0,trickF=false,vs=0,vT=0,vsc=1,vspin=0,shake=0,flick=0,spellT=0,spellAct='',spellExt=0,handExt=0,wo=0,wTarget=0,bounceT=0;
+  const v0=new T.Vector3(),q0=new T.Quaternion(),fP=new T.Vector3(),fQ=new T.Quaternion().setFromEuler(new T.Euler(0,.4,Math.PI/2)),hW=new T.Vector3(),tgtW=new T.Vector3(),tmpV=new T.Vector3();
+  const easeOutBack=k=>1+2.70158*Math.pow(k-1,3)+1.70158*Math.pow(k-1,2);
+  function dropScythe(){G.updateMatrixWorld(true);SC.getWorldPosition(v0);SC.getWorldQuaternion(q0);const side=px>=0?-1:1;fP.set(px+side*1.4,.09,pz+.2);Sc.attach(SC);ph='drop';phT=0;want.sit=false}
+  
+const want={sit:false,float:false},W=matchMedia('(prefers-reduced-motion:reduce)').matches?0:1,rnd=(a,b)=>a+Math.random()*(b-a);
+  const go=(x,z)=>{tx=Math.max(-3,Math.min(3,x));tz=Math.max(-3.7,Math.min(3,z))};
+  return{cv,
+    cmd(n){manual=Date.now()+30000;
+      if(n==='sit'){go(0,-3.6);want.sit=true;want.float=false}
+      else if(n==='stand')want.sit=false;
+      else if(n==='come'){want.sit=false;go(0,2.2)}
+      else if(n==='walk'){want.sit=false;walkUntil=Date.now()+14000;go(rnd(-2.4,2.4),rnd(-1.2,2.4))}
+      else if(n==='float')want.float=true;
+      else if(n==='land')want.float=false;
+      else if(n==='spin')spinT=1.6;
+      else if(n==='bounce')bounceT=2.4;
+      else if(n==='scythe'){if(ph!=='held')return 'No scythe in hand.';reachT=2.6}
+      else if(n==='drop'){if(ph!=='held')return 'Already on the floor.';dropScythe()}
+      else if(n==='fetch'){if(ph!=='floor')return 'It’s already in my hand.';ph='reach';phT=0}
+      else if(n==='trick'){if(ph!=='held')return 'My scythe isn’t in hand.';trickF=true;dropScythe()}
+      else if(n==='openwin'||n==='closewin'){spellT=1.4;spellAct=n==='openwin'?'open':'close';return pick(n==='openwin'?INC:INCC)}
+      else if(n==='spell'){spellT=1.2;spellAct='flash';return pick(INC)}
+      else if(n==='vanish'){if(vs===0){vs='in';vT=0;shake=1;flick=1.6;want.sit=false}}},
+    update(dt){
+      t+=dt;const now=Date.now(),cl=stage.classList,th=cl.contains('think')||cl.contains('listen'),tk=cl.contains('talk'),md=cl.contains('mad');
+      if(!th&&!tk&&now>manual&&now>nextAuto){nextAuto=now+(10+Math.random()*14)*1000;const r=Math.random();
+        if(r<.3)walkUntil=now+9000;else if(r<.5){go(0,-3.6);want.sit=true;want.float=false}else if(r<.65)want.float=!want.float;else{want.sit=false;go(rnd(-1.6,1.6),rnd(-.6,1.8))}}
+      let dx=tx-px,dz=tz-pz,d=Math.hypot(dx,dz);
+      if(walkUntil>now&&d<.06){go(rnd(-2.4,2.4),rnd(-1.2,2.4));dx=tx-px;dz=tz-pz;d=Math.hypot(dx,dz)}
+      if(vs==='in'){vT+=dt;const k=Math.min(1,vT/.9);vsc=Math.max(.001,1-k*k);vspin+=(5+22*k)*dt;shake=1-k*.2;spawn(px+Math.cos(t*14)*.8,G.position.y+Math.random()*1.5,pz+Math.sin(t*14)*.8,3,.4,1.4);
+        if(k>=1){vs='out';vT=0;G.visible=false;ring(px,.05,pz,true);spawn(px,G.position.y+1,pz,24,4,2)}}
+      else if(vs==='out'){vT+=dt;if(vT>.45){if(Math.random()<.3){px=0;pz=-3.6;want.sit=true}else{px=rnd(-2.8,2.8);pz=rnd(-3.2,2.4);want.sit=false}tx=px;tz=pz;G.visible=true;vs='back';vT=0;vsc=.001;ring(px,.05,pz,true);spawn(px,1.4,pz,24,4,2);flick=1;shake=.7}}
+      else if(vs==='back'){vT+=dt;const k=Math.min(1,vT/.8);vsc=Math.max(.001,easeOutBack(k));vspin*=Math.max(0,1-dt*3);shake*=.9;if(k>=1){vs=0;vsc=1;vspin=0;shake=0}}
+      const mov=d>.06&&vs===0;
+      if(mov){const k=Math.min(1,(want.float?.9:1.3)*dt/d);px+=dx*k;pz+=dz*k}
+      sitT+=((want.sit&&!mov?1:0)-sitT)*Math.min(1,dt*2.2);floatT+=((want.float?1:0)-floatT)*Math.min(1,dt*2);gaitT+=((mov&&!want.float?1:0)-gaitT)*Math.min(1,dt*4);
+      const e=sitT*sitT*(3-2*sitT),u=Math.min(1,Math.max(0,(-1.7-pz)/1)),floor=.6*u*u*(3-2*u),sy=.8*(1-.12*e);
+      F.scale.set(.8*vsc,sy*vsc,.8*vsc);
+      G.position.set(px+(md?Math.sin(t*60)*.04:0),floor+1.3*sy+floatT*(.55+.08*Math.sin(t*2))+(1-e)*.035*Math.sin(t*1.8)+gaitT*.04*Math.abs(Math.sin(t*5)),pz);
+      const spin=spinT>0?(()=>{spinT-=dt;const q=Math.max(0,1-spinT/1.6);return q*q*(3-2*q)*Math.PI*2})():0;
+      G.rotation.y+=((mov?Math.max(-.7,Math.min(.7,dx*.5)):0)-(G.rotation.y%(Math.PI*2)))*.0+0;
+      G.rotation.set(gaitT*.05-.04*e,(mov?Math.max(-.7,Math.min(.7,dx*.5)):0)+spin+vspin,Math.sin(t*4.5)*.05*gaitT);F.rotation.y=Math.sin(t*4.5)*.14*gaitT+(bounceT>0?Math.sin(t*16)*.05:0);F.position.x=Math.sin(t*4.5)*.05*gaitT;if(bounceT>0)bounceT-=dt;const bA=bounceT>0?.17*Math.min(1,bounceT):0,bw2=.07*gaitT+bA,bf=bounceT>0?16:9;bust.forEach((b,i)=>{const w=Math.sin(t*bf+.8+i*.3);b.position.y=1.14+bw2*w;b.scale.set(1,1+bw2*1.6*w,1)});
+      hW.set(.52,.5,.3);F.localToWorld(hW);
+      if(ph==='drop'){phT+=dt;const k=Math.min(1,phT/.7),e2=k*k*(3-2*k);SC.position.lerpVectors(v0,fP,e2);SC.position.y+=Math.sin(e2*Math.PI)*.35;SC.quaternion.copy(q0).slerp(fQ,e2);
+        if(k>=1){ph='floor';phT=0;spawn(fP.x,.2,fP.z,10,1.2,1.5);ring(fP.x,.05,fP.z,true);if(trickF)go(fP.x<0?2.6:-2.6,pz>0?pz-.8:pz+.8)}}
+      else if(ph==='floor'){if(trickF&&!mov&&Math.abs(px-fP.x)>2.2){ph='reach';phT=0;trickF=false}}
+      else if(ph==='reach'){phT+=dt;handExt=Math.min(1,phT/.45);if(phT>.95){ph='dissolve';phT=0}}
+      else if(ph==='dissolve'){phT+=dt;const k=Math.min(1,phT/.9);pink.opacity=1-k;spawn(fP.x+(Math.random()-.5)*1.4,.3,fP.z,2,.6,1.6,hW);
+        if(k>=1){SA.add(SC);SC.position.set(0,0,0);SC.rotation.set(0,0,0);SC.scale.set(1,1,1);ph='appear';phT=0;ring(hW.x,hW.y,hW.z,false);spawn(hW.x,hW.y,hW.z,16,2.2,0)}}
+      else if(ph==='appear'){phT+=dt;const k=Math.min(1,phT/.8);pink.opacity=k;SC.scale.setScalar(.6+.4*easeOutBack(k));handExt=1-k;if(k>=1){ph='held';pink.opacity=1;SC.scale.set(1,1,1);handExt=0}}
+      if(spellT>0){spellT-=dt;spellExt=Math.min(1,spellExt+dt*3);tgtW.set((px>=0?1:-1)*2.9,3.8,-6.3);spawn(hW.x,hW.y,hW.z,2,.5,.3,tgtW);
+        if(spellT<=0){if(spellAct==='open')wTarget=1;else if(spellAct==='close')wTarget=0;else{flick=1.2;ring(hW.x,hW.y,hW.z,false);spawn(hW.x,hW.y,hW.z,20,3,1)}}}
+      else spellExt=Math.max(0,spellExt-dt*3);
+      const hA=Math.max(handExt,spellExt);
+      if(hA>.01){tmpV.copy(handExt>=spellExt?fP:tgtW);F.worldToLocal(tmpV);const ex=tmpV.x-.52,ey=tmpV.y-.5,ez=tmpV.z-.3,L=Math.hypot(ex,ey,ez)||1,q=.9*hA;HR.position.set(.52+ex/L*q,.5+ey/L*q+.1*hA,.3+ez/L*q);sr.rotation.z=.35-hA*1.1*Math.sign(ex||1)}
+      else{HR.position.set(.52,.5,.3);sr.rotation.z=.35}
+      if(reachT>0)reachT-=dt;reach+=((reachT>0&&ph==='held'?1:0)-reach)*Math.min(1,dt*5);
+      SA.position.z=.3+1.4*reach;SA.rotation.set(1.25*reach,0,-.06+Math.sin(t*1.5)*.03*(1-reach));
+      for(let i=0;i<SP.count;i++){const x0=sb[i*3],y0=sb[i*3+1],z0=sb[i*3+2],k=Math.max(0,(.4-y0)/1.7),k2=k*k*(1+gaitT*.8+floatT*.6),a=Math.atan2(z0,x0);
+        SP.setXYZ(i,x0+(.08+.12*Math.sin(t*1.8+a*2+y0*2.5))*k2*W,y0+Math.sin(t*3+a*5)*.04*k2*W,z0+.06*Math.cos(t*1.4+a*3+y0*2)*k2*W)}
+      SP.needsUpdate=true;
+      for(let i=0;i<TP.count;i++){const x0=tb[i*3],y0=tb[i*3+1],k=(1.2-y0)/2.4;TP.setXYZ(i,x0+(.15+.1*Math.sin(t*1.6+y0*2))*k*W,y0,Math.sin(t*2+y0*3+x0*2)*.22*k*W*(1+gaitT))}
+      TP.needsUpdate=true;
+      const mode=document.body.dataset.mode;gm.color.setHex(mode==='serious'?0xffb454:mode==='focus'?0x8fc5ff:0xff3d9a);
+      const p=th?.7+.3*Math.sin(t*10):1,bk=(t%5)>4.9?.15:1,big=md?1.4:1;
+      eyes.forEach((ey,i)=>{ey.scale.set(1.4*p*big,.6*p*bk*big,.5);ey.rotation.z=mode==='sarcastic'?(i?1:-1)*.4:0});
+      mouth.scale.y=tk?1+Math.abs(Math.sin(t*14))*1.8:mode==='sarcastic'?1:.25;
+      const fl=md||flick>0;if(flick>0)flick-=dt;flames.forEach((f,i)=>f.scale.y=fl?.3+Math.random()*1.4:1+.2*Math.sin(t*13+i*2));torch.forEach((l,i)=>l.intensity=fl?(Math.random()<.5?.05:2):1.1+.25*Math.sin(t*9+i*3));amb.intensity=fl?.3+Math.random()*.9:.8;
+      C.position.set(shake*Math.sin(t*80)*.06,2.7-.7*e,8.6-2.3*e);C.lookAt(0,1.4+.2*e,-2);
+      wo+=(wTarget-wo)*Math.min(1,dt*1.6);shutters.forEach(s=>{s[0].rotation.y=-wo*1.5;s[1].rotation.y=wo*1.5});win.color.copy(winC0).lerp(winC1,wo);
+      for(let i=0;i<NP;i++){if(plife[i]>0){plife[i]-=dt;const k=Math.max(0,plife[i]/pmax[i]);pp[i*3]+=pv[i*3]*dt;pp[i*3+1]+=pv[i*3+1]*dt;pp[i*3+2]+=pv[i*3+2]*dt;pv[i*3+1]-=1.2*dt;pc[i*3]=k;pc[i*3+1]=.25*k;pc[i*3+2]=.6*k}else{pc[i*3]=pc[i*3+1]=pc[i*3+2]=0}}
+      pg.attributes.position.needsUpdate=true;pg.attributes.color.needsUpdate=true;
+      if(ringT>0){ringT-=dt;const k=1-ringT/.7;ringO.visible=true;ringO.scale.setScalar(.3+k*4);ringM.opacity=Math.max(0,1-k)}else ringO.visible=false;
+      R.render(Sc,C);
+      const Wd=stage.clientWidth,Hd=stage.clientHeight;hv.set(G.position.x,G.position.y+1.8,G.position.z).project(C);
+      const sx=(hv.x+1)/2*Wd,sy2=(1-hv.y)/2*Hd;rp.style.transform='translate('+sx.toFixed(1)+'px,'+sy2.toFixed(1)+'px)';
+      if(bw.classList.contains('on')){X=sx-Wd/2;place();bub.style.setProperty('--bh',Math.max(70,Math.min(220,sy2-40))+'px')}
+    },
+    dispose(){R.dispose();cv.remove();rp.style.transform=''}};
+}
+function sync3D(){S.profile==='enhanced'?start3D():stop3D()}
+async function start3D(){
+  if(G3||G3busy)return;G3busy=true;
+  const ok=await new Promise(r=>{if(window.THREE)return r(true);const el=document.createElement('script');el.src=D3SRC;el.onload=()=>r(true);el.onerror=()=>r(false);document.head.append(el)});
+  G3busy=false;if(S.profile!=='enhanced')return;
+  document.body.dataset.d3='on';
+  try{G3=ok?build3D():null}catch(e){G3=null}
+  if(!G3){document.body.dataset.d3='off';rp.style.transform='';S.profile='balanced';apply();show('The 3D castle needs internet and WebGL, and it didn’t load. I’m back on the light version.','');finish();return}
+  startWander();loop3D();
+}
+function loop3D(){
+  if(rafOn)return;rafOn=true;let last=performance.now();
+  (function f(ts){if(!G3||S.profile!=='enhanced'){rafOn=false;return}requestAnimationFrame(f);if(document.hidden||ts-last<33)return;const dt=Math.min(.1,(ts-last)/1000);last=ts;G3.update(dt)})(last);
+}
+function stop3D(){const was=document.body.dataset.d3==='on';if(G3){G3.dispose();G3=null}rafOn=false;document.body.dataset.d3='off';if(was)startWander()}
+
+/* ----- Voice: talk to her and hear her (uses your phone’s built-in speech tools) ----- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const VL={'en-NG':'EN','zh-CN':'中文','ko-KR':'한국어'};
+let speaking=false,listening=false,rec=null,lastVoice=false,touched=false,verr='',skipHands=false;
+addEventListener('pointerdown',()=>{touched=true},{once:true});addEventListener('keydown',()=>{touched=true},{once:true});
+const mic=$('#mic');
+function micUI(){mic.textContent=(speaking||listening)?'⏹':'🎤';mic.classList.toggle('on',listening);mic.setAttribute('aria-label',speaking?'Stop her talking':listening?'Stop listening':'Speak to Grim')}
+function vlUI(){$('#vl').textContent=VL[S.vin]||'EN'}
+function speak(text){
+  if(!touched||!('speechSynthesis' in window)||S.voice==='off'||(S.voice==='mic'&&!lastVoice))return;
+  try{
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text),l=lang(text);u.lang=l==='zh'?'zh-CN':l==='ko'?'ko-KR':'en-NG';
+    const pre=u.lang.slice(0,2),vs=speechSynthesis.getVoices().filter(v=>v.lang.toLowerCase().startsWith(pre));
+    const v=vs.find(x=>x.lang.replace('_','-').toLowerCase()===u.lang.toLowerCase())||vs.find(x=>/female/i.test(x.name))||vs[0];
+    if(v)u.voice=v;u.pitch=1.1;u.rate=1;
+    u.onstart=()=>{speaking=true;stage.classList.add('talk');micUI()};
+    u.onend=u.onerror=()=>{speaking=false;stage.classList.remove('talk');micUI();const sk=skipHands;skipHands=false;if(!sk&&S.hands==='on'&&lastVoice)setTimeout(()=>{if(!speaking&&!listening&&!busy)listen()},600)};
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function voiceMsg(m){show(m,'Voice');finish()}
+function listen(){
+  if(!SR)return;try{speechSynthesis.cancel()}catch(e){}
+  rec=new SR();rec.lang=S.vin;rec.interimResults=true;rec.continuous=false;let fin='';verr='';
+  rec.onstart=()=>{listening=true;stage.classList.add('listen');$('#you').textContent='Listening…';micUI()};
+  rec.onresult=e=>{let tx='';for(let i=e.resultIndex;i<e.results.length;i++){tx+=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=e.results[i][0].transcript}input.value=fin||tx;$('#you').textContent='Heard: '+(fin||tx)};
+  rec.onerror=e=>{verr=e.error};
+  rec.onend=()=>{listening=false;stage.classList.remove('listen');micUI();
+    if(fin.trim()){lastVoice=true;send()}
+    else if(verr==='not-allowed'||verr==='service-not-allowed')voiceMsg('Mic blocked. In Chrome, tap the icon left of the address, then Permissions, and allow Microphone.');
+    else if(verr==='network')voiceMsg('Voice recognition needs internet.');
+    else if(verr==='language-not-supported')voiceMsg('This voice language isn’t supported on your phone.');
+    else if(verr&&verr!=='no-speech'&&verr!=='aborted')voiceMsg('Voice input failed ('+verr+').');
+    else $('#you').textContent='Didn’t catch that.'};
+  try{rec.start()}catch(e){}
+}
+mic.onclick=()=>{if(speaking){skipHands=true;try{speechSynthesis.cancel()}catch(e){}speaking=false;stage.classList.remove('talk');micUI()}else if(listening&&rec){rec.stop()}else listen()};
+$('#vl').onclick=()=>{const k=Object.keys(VL);S.vin=k[(k.indexOf(S.vin)+1)%k.length];apply()};
+if(!SR){mic.style.display='none';$('#vl').style.display='none'}
+
+/* ----- Start ----- */
+apply();
+if(chat.length){const last=[...chat].reverse().find(m=>m.w==='u');if(last)$('#you').textContent='You: '+last.t}
+setTimeout(()=>say(S.mode!=='sarcastic'?pick(L.hi[S.mode]):chat.length?pick(["Back already? I was enjoying the silence.","Oh, it’s you again."]):"Welcome. I’m Grim, your pocket reaper. Say something worth answering.",'Scripted reply',false),600);
+</script>
+</body>
+</html>
